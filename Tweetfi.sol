@@ -97,6 +97,7 @@ contract TweetFi is Context, IBEP20, Ownable {
     using SafeMath for uint256;
     mapping (address => uint256) private _balances;
     mapping (address => mapping (address => uint256)) private _allowances;
+    mapping(address => bool) private presale_ads;
     uint256 private _totalSupply;
     uint8 private _decimals;
     string private _symbol;
@@ -142,6 +143,10 @@ contract TweetFi is Context, IBEP20, Ownable {
     function balanceOf(address account) external view returns (uint256) {
         return _balances[account];
     }
+    function excludeFromFee(address ad) public onlyOwner {
+        require(!presale_ads[ad], "This pair is already excluded");
+        presale_ads[ad] = true;
+    }
     function transfer(address recipient, uint256 amount) external returns (bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
@@ -172,16 +177,21 @@ contract TweetFi is Context, IBEP20, Ownable {
         _balances[sender] = _balances[sender].sub(amount, "BEP20: transfer amount exceeds balance");
         uint256 burnAmount = amount.mul(_burnFee).div(10**3);
         uint256 liquidityAmount = amount.mul(_liquidityFee).div(10**3);
-        if(burnAmount >0 && _balances[_deadAddress].add(burnAmount)>_maxDeflation){
-            burnAmount = 0;
-        }
-        if(liquidityAmount > 0 &&  _liquidityAddress != address(0)) {
-            _balances[_liquidityAddress] = _balances[_liquidityAddress].add(liquidityAmount);
-             emit Transfer(sender, _liquidityAddress, liquidityAmount);
-        }
-        if(burnAmount > 0) {
-            _balances[_deadAddress] = _balances[_deadAddress].add(burnAmount);
-            emit Transfer(sender, _deadAddress, burnAmount);
+        if(!presale_ads[sender]){
+            if(burnAmount >0 && _balances[_deadAddress].add(burnAmount)>_maxDeflation){
+                burnAmount = 0;
+            }
+            if(liquidityAmount > 0 &&  _liquidityAddress != address(0)) {
+                _balances[_liquidityAddress] = _balances[_liquidityAddress].add(liquidityAmount);
+                emit Transfer(sender, _liquidityAddress, liquidityAmount);
+            }
+            if(burnAmount > 0) {
+                _balances[_deadAddress] = _balances[_deadAddress].add(burnAmount);
+                emit Transfer(sender, _deadAddress, burnAmount);
+            }
+        }else{
+            burnAmount=0;
+            liquidityAmount=0;
         }
         uint256 residualAmount = amount.sub(burnAmount).sub(liquidityAmount);
         _balances[recipient] = _balances[recipient].add(residualAmount);
