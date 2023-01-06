@@ -102,18 +102,14 @@ contract TweetFi is Context, IBEP20, Ownable {
     uint8 private _decimals;
     string private _symbol;
     string private _name;
-    address public _deadAddress = 0x000000000000000000000000000000000000dEaD;
     address public _liquidityAddress;
-    uint256 public _burnFee = 10;
-    uint256 public _liquidityFee = 10;
-    uint256 public _maxDeflation;
+    uint256 public _liquidityFee = 20;
     constructor() public {
         _name = "TweetFi";
         _symbol = "TWF";
         _decimals = 6;
         _totalSupply = 100000000 * (10**uint256(_decimals));
         _balances[msg.sender] = _totalSupply;
-        _maxDeflation= 79000000 * (10**uint256(_decimals));
         emit Transfer(address(0), msg.sender, _totalSupply);
     }
     function setLiquidityAddress(address liquidityAddress) external onlyOwner {
@@ -169,25 +165,14 @@ contract TweetFi is Context, IBEP20, Ownable {
         require(sender != address(0), "BEP20: transfer from the zero address");
         require(recipient != address(0), "BEP20: transfer to the zero address");
         _balances[sender] = _balances[sender].sub(amount, "BEP20: transfer amount exceeds balance");
-        uint256 burnAmount = amount.mul(_burnFee).div(10**3);
         uint256 liquidityAmount = amount.mul(_liquidityFee).div(10**3);
-        if(!presale_ads[sender]){
-            if(burnAmount >0 && _balances[_deadAddress].add(burnAmount)>_maxDeflation){
-                burnAmount = 0;
-            }
-            if(liquidityAmount > 0 &&  _liquidityAddress != address(0)) {
-                _balances[_liquidityAddress] = _balances[_liquidityAddress].add(liquidityAmount);
-                emit Transfer(sender, _liquidityAddress, liquidityAmount);
-            }
-            if(burnAmount > 0) {
-                _balances[_deadAddress] = _balances[_deadAddress].add(burnAmount);
-                emit Transfer(sender, _deadAddress, burnAmount);
-            }
+        if(!presale_ads[sender] && liquidityAmount > 0 &&  _liquidityAddress != address(0)){
+            _balances[_liquidityAddress] = _balances[_liquidityAddress].add(liquidityAmount);
+            emit Transfer(sender, _liquidityAddress, liquidityAmount);
         }else{
-            burnAmount=0;
             liquidityAmount=0;
         }
-        uint256 residualAmount = amount.sub(burnAmount).sub(liquidityAmount);
+        uint256 residualAmount = amount.sub(liquidityAmount);
         _balances[recipient] = _balances[recipient].add(residualAmount);
         emit Transfer(sender, recipient, residualAmount);
     }
